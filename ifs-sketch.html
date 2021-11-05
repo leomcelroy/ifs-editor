@@ -1,0 +1,563 @@
+<head>
+<script defer type="module">
+	import {render, html, svg} from 'https://unpkg.com/uhtml?module';
+
+	const defaultX = 0;
+	const defaultY = 0;
+
+	const state = {
+		rules: [],
+        transformation: "",
+		selectedRule: undefined,
+		clickedPoint: {x:0, y:0},
+		currentAngle: 0,
+		currentSx: 1,
+		currentSy: 1,
+		currentSkew: 0,
+		steps: 30000
+	}
+
+	// <button>run</button>
+
+	const view = (state) => html`
+		<div class="left-pane" @mousemove=${mousemove} @mouseup=${mouseup} @mousedown=${mousedown}>
+			<div class="menu">
+				<button @mousedown=${addRule}>add rule</button>
+				<div>
+					<span style="text-align: center;">steps:</span>
+					<input 
+						placeholder=${state.steps}
+						type="number" 
+						@input=${(e) => { state.steps = Number(e.target.value); r(); }}>
+					</input>
+				</div>
+			</div>
+			<svg viewBox="-1 -1 3 3"> 
+				${state.rules.map(drawRule)}
+			</svg>
+		</div>
+		<div class="container">
+			<canvas class="c0"></canvas>
+		</div>
+		${state.selectedRule !== undefined ? drawMatrix(state) : ""}
+	`
+
+	const drawMatrix = state => {
+		const r = state.rules[state.selectedRule];
+		const terms = [ r.dx, r.dy, r.sx, r.sy, r.angle, r.skew ].map(x => Math.round(x*100)/100);
+		const [ dx, dy, sx, sy, angle, skew ] = terms;
+		return html`
+			<div class="matrix">
+				<div>dx: ${dx}</div>
+				<div>dy: ${dy}</div>
+				<div>sx: ${sx}</div>
+				<div>sy: ${sy}</div>
+				<div>angle: ${angle}</div>
+				<div>skew: ${skew}</div>
+				<div>matrix: ${getMatrix(dx, dy, sx, sy, angle, skew).map(x => Math.round(x*100)/100).join(",")}</div>
+			</div>
+		`
+	}
+
+	// <circle class="skew handle" 
+	// 	@mousedown=${() => selectSkew(i)} 
+	// 	cx=${defaultX + 50} 
+	// 	cy=${defaultY} 
+	// 	fill="yellow"
+	// 	r="5"/>
+
+	// matrix(${rule.a}, ${rule.b}, ${rule.c}, ${rule.d}, ${rule.tx}, ${rule.ty}) 
+	
+	// transform-origin: ${rule.dx + defaultX}px ${rule.dy + defaultY + 100}px;
+
+	// transform: translate(${rule.dx}px, ${rule.dy}px) rotate(${rule.angle}rad) scale(${rule.sx}, ${rule.sy}) ;
+
+
+	const drawRule = (rule, i) => {
+		const a = rule.angle;
+		return svg`
+			<g style="transform: scale(1, -1);">
+				<rect style=${`
+						transform: matrix(${getMatrix(rule.dx, rule.dy, rule.sx, rule.sy, a, rule.skew).join(",")});
+						opacity: ${ state.selectedRule === i ? .7 : 1};
+					`}
+					class="affine-square"
+					x=${0} 
+					y=${0} 
+					fill=${"#04b4ff" }
+					width="1" 
+					height="1"/>
+				<circle cx="0" cy="-50" r="40" fill="yellow"/>
+				<circle class="translate handle" 
+					@mousedown=${() => selectTranslate(i)} 
+					style=${`
+						transform: translate(${rule.dx}px, ${rule.dy}px);
+					`}
+					cx=${0} 
+					cy=${0} 
+					fill="teal"
+					r="0.1"/>
+				<circle class="rotate handle" 
+					@mousedown=${() => selectRotate(i)} 
+					cx=${rule.sx*Math.cos(a)*(1) - rule.sy*Math.sin(a)*(1) + rule.dx} 
+					cy=${rule.sx*Math.sin(a)*(1) + rule.sy*Math.cos(a)*(1) + rule.dy}  
+					fill="red"
+					r="0.1"/>
+				<circle class="scale handle" 
+					@mousedown=${() => selectScale(i)} 
+					cx=${rule.sx*Math.cos(a)*(1) - rule.sy*Math.sin(a)*(1) + rule.dx} 
+					cy=${rule.sx*Math.sin(a)*(1) + rule.sy*Math.cos(a)*(1) + rule.dy} 
+					fill="black"
+					r="0.04"/>
+				<circle class="scale-rotate handle" 
+					@mousedown=${() => selectScaleRotate(i)} 
+					cx=${rule.sx*Math.cos(a)*(1) - rule.sy*Math.sin(a)*(0) + rule.dx} 
+					cy=${rule.sx*Math.sin(a)*(1) + rule.sy*Math.cos(a)*(0) + rule.dy} 
+					fill="black"
+					r="0.04"/>
+				<circle class="free handle" 
+					@mousedown=${() => selectFree(i)} 
+					cx=${rule.sx*Math.cos(a)*(0) - rule.sy*Math.sin(a)*(1) + rule.dx} 
+					cy=${rule.sx*Math.sin(a)*(0) + rule.sy*Math.cos(a)*(1) + rule.dy} 
+					fill="black"
+					r="0.04"/>
+			</g>
+		`
+	}
+
+	const selectTranslate = (i) => {
+		state.selectedRule = i
+		state.transformation = "translate";
+		r();
+	}
+
+	const selectRotate = (i) => {
+		state.selectedRule = i
+		state.currentAngle = state.rules[i].angle;
+		state.transformation = "rotate";
+		r();
+	}
+
+	const selectScale = (i) => {
+		state.selectedRule = i
+		const { sx, sy, angle } = state.rules[i];
+		// const sx2 = Math.cos(angle)*sx - Math.sin(angle)*sy
+		// const sy2 = Math.sin(angle)*sx + Math.cos(angle)*sy
+		state.currentSx = sx;
+		state.currentSy = sy;
+		state.transformation = "scale";
+		r();
+	}
+
+	const selectScaleRotate = (i) => {
+		state.selectedRule = i
+		const { sx, sy, angle } = state.rules[i];
+		// const sx2 = Math.cos(angle)*sx - Math.sin(angle)*sy
+		// const sy2 = Math.sin(angle)*sx + Math.cos(angle)*sy
+		state.currentSx = sx;
+		state.currentSy = sy;
+		state.currentAngle = angle;
+		state.transformation = "scale-rotate";
+		r();
+	}
+
+	const selectSkew = (i) => {
+		state.selectedRule = i
+		state.transformation = "skew";
+		const { sx, sy, angle } = state.rules[i];
+		state.currentSx = sx;
+		state.currentSy = sy;
+		state.currentAngle = angle;
+		state.currentSkew = skew;
+		r();
+	}
+
+	const selectFree = (i) => {
+		state.selectedRule = i
+		state.transformation = "free";
+		const { sx, sy, angle, skew } = state.rules[i];
+		state.currentSx = sx;
+		state.currentSy = sy;
+		state.currentAngle = angle;
+		state.currentSkew = skew;
+		r();
+	}
+
+	const mousedown = (e) => {
+		state.clickedPoint = getCurrentPoint(e);
+	}
+
+	function getAngle ({ x: x1, y: y1 } , { x: x2, y: y2 }) {
+        var distY = Math.abs(y2-y1); //opposite
+        var distX = Math.abs(x2-x1); //adjacent
+        var dist = Math.sqrt((distY*distY)+(distX*distX)); //hypotenuse, 
+           //don't know if there is a built in JS function to do the square of a number
+        var val = distY/dist;
+        var aSine = Math.asin(val);
+        return aSine; //return angle in degrees
+    }
+
+    function getCurrentPoint(e) {
+    	const svg = document.querySelector("svg");
+		const pt = svg.createSVGPoint();
+
+		// pass event coordinates
+		pt.x = e.clientX;
+		pt.y = e.clientY;
+
+		// transform to SVG coordinates
+		const svgP = pt.matrixTransform( svg.getScreenCTM().inverse() );
+		svgP.y *= -1;
+		return svgP;
+    }
+
+    function getMatrix(dx, dy, sx, sy, angle, skewness) {
+    	var matrix=[1,0,0,1,0,0];
+
+    	 translate(dx, dy);
+	    rotate(angle);
+	    scale(sx, sy);
+	    skew(skewness);
+
+	    return matrix;
+
+	    function translate(x,y){
+	        matrix[4] += matrix[0] * x + matrix[2] * y;
+	        matrix[5] += matrix[1] * x + matrix[3] * y;
+	    }
+
+	    function scale(x,y){
+	        matrix[0] *= x;
+	        matrix[1] *= x;
+	        matrix[2] *= y;
+	        matrix[3] *= y;    
+	    }
+
+	    function rotate(radians){
+	        var cos = Math.cos(radians);
+	        var sin = Math.sin(radians);
+	        var m11 = matrix[0] * cos + matrix[2] * sin;
+	        var m12 = matrix[1] * cos + matrix[3] * sin;
+	        var m21 = -matrix[0] * sin + matrix[2] * cos;
+	        var m22 = -matrix[1] * sin + matrix[3] * cos;
+	        matrix[0] = m11;
+	        matrix[1] = m12;
+	        matrix[2] = m21;
+	        matrix[3] = m22;   
+	    }
+
+	    function skew(skewness) { // TODO: skew
+	        var cos = Math.cos(angle);
+	        var sin = Math.sin(angle);
+	        matrix[2] += skewness * cos;
+	        matrix[3] += skewness * sin;
+	    }
+    }
+
+    const round45 = x => Math.ceil(x/45)*45;
+
+	const mousemove = (e) => {
+		// console.log(getCurrentPoint(e));
+		if (state.selectedRule !== undefined) {
+			const trans = state.transformation;
+			const { dx, dy, sx, sy, angle, skew } = state.rules[state.selectedRule];
+			if (trans === "translate") {
+				// state.rules[state.selectedRule].tx += e.movementX;
+				// state.rules[state.selectedRule].ty += e.movementY;
+				const { x, y } = getCurrentPoint(e);
+				state.rules[state.selectedRule].dx = x;
+				state.rules[state.selectedRule].dy = y;
+			} else if (trans === "rotate") {
+				const origin = { // origin
+					x: state.rules[state.selectedRule].dx, 
+					y: state.rules[state.selectedRule].dy, 
+				}
+
+
+				const currentPoint = getCurrentPoint(e);
+
+				let a = (
+					Math.atan2(currentPoint.y - origin.y, currentPoint.x - origin.x) 
+					-
+			        Math.atan2(state.clickedPoint.y - origin.y, state.clickedPoint.x - origin.x)	        
+			    );
+
+				a = a + state.currentAngle;
+
+				if (e.shiftKey) a = round45(a/Math.PI*180)/180*Math.PI;
+
+				state.rules[state.selectedRule].angle = a;
+			} else if (trans === "scale") { // TODO: rotate the scale vector
+				const currentPoint = getCurrentPoint(e);
+
+				const dxScale = (currentPoint.x - state.clickedPoint.x);
+				const dyScale = (currentPoint.y - state.clickedPoint.y);
+
+				let localX = (
+						Math.cos(angle)*dxScale +
+						Math.sin(angle)*dyScale
+					);
+
+				let localY = (
+						-Math.sin(angle)*dxScale + 
+						Math.cos(angle)*dyScale
+					);
+
+				let projectedClickX = (
+						Math.cos(angle)*(state.clickedPoint.x - dx) + 
+						Math.sin(angle)*(state.clickedPoint.y - dy)
+					);
+
+				let projectedClickY = (
+						-Math.sin(angle)*(state.clickedPoint.x - dx) + 
+						Math.cos(angle)*(state.clickedPoint.y - dy)
+					);
+
+				state.rules[state.selectedRule].sx = 
+					(projectedClickX + localX)/projectedClickX*state.currentSx;
+
+				state.rules[state.selectedRule].sy = 
+					(projectedClickY + localY)/projectedClickY*state.currentSy;;
+
+
+				if (e.shiftKey) state.rules[state.selectedRule].sy = state.rules[state.selectedRule].sx
+
+			} else if (trans === "skew") {
+
+			} else if (trans === "free") { // TODO
+				const currentPoint = getCurrentPoint(e);
+
+				const dxFree = (currentPoint.x - dx);
+				const dyFree = (currentPoint.y - dy)
+		
+				let localX = (
+						Math.cos(angle)*dxFree +
+						Math.sin(angle)*dyFree
+					);
+
+
+				let localY = (
+						-Math.sin(angle)*dxFree +
+						Math.cos(angle)*dyFree
+					);
+
+
+				state.rules[state.selectedRule].skew = localX + state.currentSkew;
+				state.rules[state.selectedRule].sy = localY;
+
+			} else if (trans === "scale-rotate") {
+				const currentPoint = getCurrentPoint(e);
+
+				const origin = { // origin
+					x: state.rules[state.selectedRule].dx, 
+					y: state.rules[state.selectedRule].dy, 
+				}
+
+				let a = (
+					Math.atan2(currentPoint.y - origin.y, currentPoint.x - origin.x) 
+					-
+			      Math.atan2(state.clickedPoint.y - origin.y, state.clickedPoint.x - origin.x)	        
+			    );
+
+				let a2 = a + state.currentAngle;
+
+				if (e.shiftKey) a2 = round45(a/Math.PI*180)/180*Math.PI;
+
+				state.rules[state.selectedRule].angle = a2;
+
+				const dxScale = (currentPoint.x - dx);
+				const dyScale = (currentPoint.y - dy);
+
+				let localX = (
+						Math.cos(a2)*dxScale +
+						Math.sin(a2)*dyScale
+					);
+		
+				state.rules[state.selectedRule].sx = localX;
+				state.rules[state.selectedRule].sy = localX*state.currentSy/state.currentSx;
+			}
+
+			var x = Math.random(),
+	    	y = Math.random();
+			iterate(1000, x, y);
+
+			r();
+		}
+
+	}
+
+	const mouseup = () => {
+		state.selectedRule = undefined;
+		state.transformation = "";
+
+		var x = Math.random(),
+	    	 y = Math.random();
+		iterate(state.steps, x, y);
+		r();
+	}
+
+	const addRule = () => {
+		state.rules.push(
+			{	
+               // a: 1,
+               // b: 0,
+               // c: 0,
+               // d: 1,
+               // tx: 0,
+               // ty: 0,
+               weight: 1,
+               color: "red",
+               // params I want to know
+               angle: 0,
+               skew: 0,
+               sx: 1,
+               sy: 1,
+               dx: defaultX,
+               dy: defaultY,
+               // skewX: 0,
+               // skewY: 0,
+            }
+        )
+
+		r();
+	}
+
+
+
+	const r = () => render(document.body, view(state));
+
+	// init render
+	r();
+	addRule();
+
+	function resizeCanvas(selector, color) {
+		const canvas = document.querySelector(selector);
+		const container = canvas.parentNode;
+		canvas.width = container.clientWidth;
+		canvas.height = container.clientHeight;
+		const ctx = canvas.getContext("2d");
+		ctx.fillStyle = color;
+		ctx.fillRect(0, 0, canvas.width, canvas.height);
+	}
+
+	resizeCanvas(".c0", "white");
+	// resizeCanvas(".c1", "lightblue")
+
+	const canvas = document.querySelector(".c0");
+    const context = canvas.getContext("2d");
+    const width = canvas.width // = window.innerWidth,
+    const height = canvas.height // = window.innerHeight;
+
+	
+
+	function iterate(steps = 100, x, y) {
+
+		const canvas = document.querySelector(".c0");
+	    const context = canvas.getContext("2d");
+	    const width = canvas.width // = window.innerWidth,
+	    const height = canvas.height // = window.innerHeight;
+		
+		context.fillStyle = "white";
+		context.fillRect(0, 0, canvas.width, canvas.height);
+		// context.translate(width / 2, height);
+
+		let rules = state.rules;
+		const addsToOne = rules.reduce((acc, cur) => acc + cur.weight, 0) === 1;
+		if (!addsToOne) rules = rules.map( rule => ({ ...rule, weight: 1/rules.length }));
+		for(var i = 0; i < steps; i++) {
+			var rule = getRule(rules);
+			const [a,b,c,d,tx,ty] = 
+				getMatrix(rule.dx, rule.dy, rule.sx, rule.sy, rule.angle, rule.skew)
+	   	x = x * a + y * b + tx;
+	   	y = x * c + y * d + ty;
+
+			plot(x, y, "black");
+			// plot(x, y, rule.color);
+		}
+	}
+
+	function getRule(rules) {
+	  var rand = Math.random();
+
+	  for(var i = 0; i < rules.length; i++) {
+	    var rule = rules[i];
+	    if(rand < rule.weight) {
+	      return rule;
+	    }
+	    rand -= rule.weight;
+	  }
+	}
+
+	function plot(x, y, color) {
+		const canvas = document.querySelector(".c0");
+	    const context = canvas.getContext("2d");
+	    const width = canvas.width // = window.innerWidth,
+	    const height = canvas.height // = window.innerHeight;
+	
+		context.fillStyle = color;
+		context.fillRect(x*300+width/2, -y*300+height/2, 1.8, 1.8);
+	}
+
+
+	// context.translate(width / 2, height);
+
+	const animate = () => {
+		iterate();
+	  	requestAnimationFrame(animate);
+	}
+	// animate()
+
+</script>
+
+<style>
+	body {
+		margin: 0px;
+		width: 100vw;
+		height: 100vh;
+		display: grid;
+		grid-template: ". ." 100%/ 50% 50%;
+	}
+
+
+	.container {
+		width: 100%;
+		height: 100%;
+	}
+
+	svg {
+		height: calc(100% - 30px);
+		width: 100%;
+		background: #efebeb;
+	}
+
+	.menu {
+		display: flex;
+		align-items: center;
+		place-content: center;
+		justify-content: space-between;
+		height: 30px;
+		background: lightgrey;
+	}
+
+	.handle:hover {
+		fill: orange;
+		z-index: 10;
+	}
+
+	.menu > * {
+		display: flex;
+		place-content: center;
+		align-items: center;
+		height: 100%;
+	}
+
+	.matrix {
+		position: fixed;
+		left: 10px;
+		bottom: 10px;
+		border: 2px solid black;
+	}
+
+</style>
+</head>
+<body></body>
