@@ -8,16 +8,11 @@
 	const state = {
 		rules: [],
         transformation: "",
-		selectedRule: undefined,
+		selectedRule: undefined, // index
 		clickedPoint: {x:0, y:0},
-		currentAngle: 0,
-		currentSx: 1,
-		currentSy: 1,
-		currentSkew: 0,
+		ogRule: undefined, // obj
 		steps: 30000
 	}
-
-	// <button>run</button>
 
 	const view = (state) => html`
 		<div class="left-pane" @mousemove=${mousemove} @mouseup=${mouseup} @mousedown=${mousedown}>
@@ -46,6 +41,8 @@
 		const r = state.rules[state.selectedRule];
 		const terms = [ r.dx, r.dy, r.sx, r.sy, r.angle, r.skew ].map(x => Math.round(x*100)/100);
 		const [ dx, dy, sx, sy, angle, skew ] = terms;
+		const matrix = getMatrix(dx, dy, sx, sy, angle, skew);
+
 		return html`
 			<div class="matrix">
 				<div>dx: ${dx}</div>
@@ -54,31 +51,23 @@
 				<div>sy: ${sy}</div>
 				<div>angle: ${angle}</div>
 				<div>skew: ${skew}</div>
-				<div>matrix: ${getMatrix(dx, dy, sx, sy, angle, skew).map(x => Math.round(x*100)/100).join(",")}</div>
+				<div>matrix: ${matrix.map(x => Math.round(x*100)/100).join(",")}</div>
 			</div>
 		`
 	}
 
-	// <circle class="skew handle" 
-	// 	@mousedown=${() => selectSkew(i)} 
-	// 	cx=${defaultX + 50} 
-	// 	cy=${defaultY} 
-	// 	fill="yellow"
-	// 	r="5"/>
-
-	// matrix(${rule.a}, ${rule.b}, ${rule.c}, ${rule.d}, ${rule.tx}, ${rule.ty}) 
-	
-	// transform-origin: ${rule.dx + defaultX}px ${rule.dy + defaultY + 100}px;
-
-	// transform: translate(${rule.dx}px, ${rule.dy}px) rotate(${rule.angle}rad) scale(${rule.sx}, ${rule.sy}) ;
-
-
 	const drawRule = (rule, i) => {
-		const a = rule.angle;
+		const matrix = getMatrix(rule.dx, rule.dy, rule.sx, rule.sy, rule.angle, rule.skew);
+		const [a, b, c, d, tx, ty] = matrix;
+		const mapPt = ([x, y]) => [
+			x * a + y * b + tx,
+	   	x * c + y * d + ty
+		];
+
 		return svg`
 			<g style="transform: scale(1, -1);">
 				<rect style=${`
-						transform: matrix(${getMatrix(rule.dx, rule.dy, rule.sx, rule.sy, a, rule.skew).join(",")});
+						transform: matrix(${matrix.join(",")});
 						opacity: ${ state.selectedRule === i ? .7 : 1};
 					`}
 					class="affine-square"
@@ -99,26 +88,26 @@
 					r="0.1"/>
 				<circle class="rotate handle" 
 					@mousedown=${() => selectRotate(i)} 
-					cx=${rule.sx*Math.cos(a)*(1) - rule.sy*Math.sin(a)*(1) + rule.dx} 
-					cy=${rule.sx*Math.sin(a)*(1) + rule.sy*Math.cos(a)*(1) + rule.dy}  
+					cx=${mapPt([1, 1])[0]} 
+					cy=${mapPt([1, 1])[1]}  
 					fill="red"
 					r="0.1"/>
 				<circle class="scale handle" 
 					@mousedown=${() => selectScale(i)} 
-					cx=${rule.sx*Math.cos(a)*(1) - rule.sy*Math.sin(a)*(1) + rule.dx} 
-					cy=${rule.sx*Math.sin(a)*(1) + rule.sy*Math.cos(a)*(1) + rule.dy} 
+					cx=${mapPt([1, 1])[0]} 
+					cy=${mapPt([1, 1])[1]}  
 					fill="black"
 					r="0.04"/>
 				<circle class="scale-rotate handle" 
 					@mousedown=${() => selectScaleRotate(i)} 
-					cx=${rule.sx*Math.cos(a)*(1) - rule.sy*Math.sin(a)*(0) + rule.dx} 
-					cy=${rule.sx*Math.sin(a)*(1) + rule.sy*Math.cos(a)*(0) + rule.dy} 
+					cx=${mapPt([1, 0])[0]} 
+					cy=${mapPt([1, 0])[1]}  
 					fill="black"
 					r="0.04"/>
 				<circle class="free handle" 
 					@mousedown=${() => selectFree(i)} 
-					cx=${rule.sx*Math.cos(a)*(0) - rule.sy*Math.sin(a)*(1) + rule.dx} 
-					cy=${rule.sx*Math.sin(a)*(0) + rule.sy*Math.cos(a)*(1) + rule.dy} 
+					cx=${mapPt([0, 1])[0]} 
+					cy=${mapPt([0, 1])[1]}  
 					fill="black"
 					r="0.04"/>
 			</g>
@@ -128,58 +117,42 @@
 	const selectTranslate = (i) => {
 		state.selectedRule = i
 		state.transformation = "translate";
+		state.ogRule = { ...state.rules[i] };
 		r();
 	}
 
 	const selectRotate = (i) => {
 		state.selectedRule = i
-		state.currentAngle = state.rules[i].angle;
 		state.transformation = "rotate";
+		state.ogRule = { ...state.rules[i] };
 		r();
 	}
 
 	const selectScale = (i) => {
 		state.selectedRule = i
-		const { sx, sy, angle } = state.rules[i];
-		// const sx2 = Math.cos(angle)*sx - Math.sin(angle)*sy
-		// const sy2 = Math.sin(angle)*sx + Math.cos(angle)*sy
-		state.currentSx = sx;
-		state.currentSy = sy;
 		state.transformation = "scale";
+		state.ogRule = { ...state.rules[i] };
 		r();
 	}
 
 	const selectScaleRotate = (i) => {
 		state.selectedRule = i
-		const { sx, sy, angle } = state.rules[i];
-		// const sx2 = Math.cos(angle)*sx - Math.sin(angle)*sy
-		// const sy2 = Math.sin(angle)*sx + Math.cos(angle)*sy
-		state.currentSx = sx;
-		state.currentSy = sy;
-		state.currentAngle = angle;
 		state.transformation = "scale-rotate";
+		state.ogRule = { ...state.rules[i] };
 		r();
 	}
 
 	const selectSkew = (i) => {
 		state.selectedRule = i
 		state.transformation = "skew";
-		const { sx, sy, angle } = state.rules[i];
-		state.currentSx = sx;
-		state.currentSy = sy;
-		state.currentAngle = angle;
-		state.currentSkew = skew;
+		state.ogRule = { ...state.rules[i] };
 		r();
 	}
 
 	const selectFree = (i) => {
 		state.selectedRule = i
 		state.transformation = "free";
-		const { sx, sy, angle, skew } = state.rules[i];
-		state.currentSx = sx;
-		state.currentSy = sy;
-		state.currentAngle = angle;
-		state.currentSkew = skew;
+		state.ogRule = { ...state.rules[i] };
 		r();
 	}
 
@@ -257,13 +230,10 @@
     const round45 = x => Math.ceil(x/45)*45;
 
 	const mousemove = (e) => {
-		// console.log(getCurrentPoint(e));
 		if (state.selectedRule !== undefined) {
 			const trans = state.transformation;
 			const { dx, dy, sx, sy, angle, skew } = state.rules[state.selectedRule];
 			if (trans === "translate") {
-				// state.rules[state.selectedRule].tx += e.movementX;
-				// state.rules[state.selectedRule].ty += e.movementY;
 				const { x, y } = getCurrentPoint(e);
 				state.rules[state.selectedRule].dx = x;
 				state.rules[state.selectedRule].dy = y;
@@ -282,7 +252,7 @@
 			        Math.atan2(state.clickedPoint.y - origin.y, state.clickedPoint.x - origin.x)	        
 			    );
 
-				a = a + state.currentAngle;
+				a = a + state.ogRule.angle;
 
 				if (e.shiftKey) a = round45(a/Math.PI*180)/180*Math.PI;
 
@@ -314,17 +284,17 @@
 					);
 
 				state.rules[state.selectedRule].sx = 
-					(projectedClickX + localX)/projectedClickX*state.currentSx;
+					(projectedClickX + localX)/projectedClickX*state.ogRule.sx;
 
 				state.rules[state.selectedRule].sy = 
-					(projectedClickY + localY)/projectedClickY*state.currentSy;;
+					(projectedClickY + localY)/projectedClickY*state.ogRule.sy;
 
 
 				if (e.shiftKey) state.rules[state.selectedRule].sy = state.rules[state.selectedRule].sx
 
 			} else if (trans === "skew") {
 
-			} else if (trans === "free") { // TODO
+			} else if (trans === "free") {
 				const currentPoint = getCurrentPoint(e);
 
 				const dxFree = (currentPoint.x - dx);
@@ -342,7 +312,7 @@
 					);
 
 
-				state.rules[state.selectedRule].skew = localX + state.currentSkew;
+				state.rules[state.selectedRule].skew = localX + state.ogRule.skew;
 				state.rules[state.selectedRule].sy = localY;
 
 			} else if (trans === "scale-rotate") {
@@ -359,7 +329,7 @@
 			      Math.atan2(state.clickedPoint.y - origin.y, state.clickedPoint.x - origin.x)	        
 			    );
 
-				let a2 = a + state.currentAngle;
+				let a2 = a + state.ogRule.angle;
 
 				if (e.shiftKey) a2 = round45(a/Math.PI*180)/180*Math.PI;
 
@@ -374,7 +344,7 @@
 					);
 		
 				state.rules[state.selectedRule].sx = localX;
-				state.rules[state.selectedRule].sy = localX*state.currentSy/state.currentSx;
+				state.rules[state.selectedRule].sy = localX*state.ogRule.sy/state.ogRule.sx;
 			}
 
 			var x = Math.random(),
@@ -397,27 +367,16 @@
 	}
 
 	const addRule = () => {
-		state.rules.push(
-			{	
-               // a: 1,
-               // b: 0,
-               // c: 0,
-               // d: 1,
-               // tx: 0,
-               // ty: 0,
-               weight: 1,
-               color: "red",
-               // params I want to know
-               angle: 0,
-               skew: 0,
-               sx: 1,
-               sy: 1,
-               dx: defaultX,
-               dy: defaultY,
-               // skewX: 0,
-               // skewY: 0,
-            }
-        )
+		state.rules.push({	
+         angle: 0,
+         skew: 0,
+         sx: 1,
+         sy: 1,
+         dx: defaultX,
+         dy: defaultY,
+         weight: 1,
+         color: "red",
+      })
 
 		r();
 	}
