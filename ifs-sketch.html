@@ -357,8 +357,8 @@
 				const dyScale = (currentPoint.y - dy);
 
 				let localX = (
-						Math.cos(a2)*dxScale +
-						Math.sin(a2)*dyScale
+						Math.cos(angle)*dxScale +
+						Math.sin(angle)*dyScale
 					);
 		
 				state.rules[state.selectedRule].sx = localX;
