@@ -266,34 +266,46 @@
 			} else if (trans === "scale") { // TODO: rotate the scale vector
 				const currentPoint = getCurrentPoint(e);
 
-				const dxScale = (currentPoint.x - state.clickedPoint.x);
-				const dyScale = (currentPoint.y - state.clickedPoint.y);
-
+				const dxFree = (currentPoint.x - dx);
+				const dyFree = (currentPoint.y - dy);
+		
 				let localX = (
-						Math.cos(angle)*dxScale +
-						Math.sin(angle)*dyScale
-					);
+						Math.cos(angle)*dxFree +
+						Math.sin(angle)*dyFree
+					)
+
 
 				let localY = (
-						-Math.sin(angle)*dxScale + 
-						Math.cos(angle)*dyScale
+						-Math.sin(angle)*dxFree +
+						Math.cos(angle)*dyFree
 					);
 
-				let projectedClickX = (
-						Math.cos(angle)*(state.clickedPoint.x - dx) + 
-						Math.sin(angle)*(state.clickedPoint.y - dy)
-					);
+				// const dxScale = (currentPoint.x - state.clickedPoint.x);
+				// const dyScale = (currentPoint.y - state.clickedPoint.y);
 
-				let projectedClickY = (
-						-Math.sin(angle)*(state.clickedPoint.x - dx) + 
-						Math.cos(angle)*(state.clickedPoint.y - dy)
-					);
+				// let localX = (
+				// 		Math.cos(angle)*dxScale +
+				// 		Math.sin(angle)*dyScale
+				// 	);
 
-				state.rules[state.selectedRule].sx = 
-					(projectedClickX + localX)/projectedClickX*state.ogRule.sx;
+				// let localY = (
+				// 		-Math.sin(angle)*dxScale + 
+				// 		Math.cos(angle)*dyScale
+				// 	);
 
-				state.rules[state.selectedRule].sy = 
-					(projectedClickY + localY)/projectedClickY*state.ogRule.sy;
+				// let projectedClickX = (
+				// 		Math.cos(angle)*(state.clickedPoint.x - dx) + 
+				// 		Math.sin(angle)*(state.clickedPoint.y - dy)
+				// 	);
+
+				// let projectedClickY = (
+				// 		-Math.sin(angle)*(state.clickedPoint.x - dx) + 
+				// 		Math.cos(angle)*(state.clickedPoint.y - dy)
+				// 	);
+
+				state.rules[state.selectedRule].sx = localX-state.ogRule.skew;
+
+				state.rules[state.selectedRule].sy = localY;
 
 
 				if (e.shiftKey) state.rules[state.selectedRule].sy = state.rules[state.selectedRule].sx
@@ -304,7 +316,7 @@
 				const currentPoint = getCurrentPoint(e);
 
 				const dxFree = (currentPoint.x - dx);
-				const dyFree = (currentPoint.y - dy)
+				const dyFree = (currentPoint.y - dy);
 		
 				let localX = (
 						Math.cos(angle)*dxFree +
@@ -462,7 +474,7 @@
 	    const height = canvas.height // = window.innerHeight;
 	
 		context.fillStyle = color;
-		context.fillRect(x*300+width/2, -y*300+height/2, 1.8, 1.8);
+		context.fillRect(x*200+width/2, -y*200+height/2, 1.8, 1.8);
 	}
 
 
