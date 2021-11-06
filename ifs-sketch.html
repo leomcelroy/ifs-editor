@@ -60,9 +60,15 @@
 		const matrix = getMatrix(rule.dx, rule.dy, rule.sx, rule.sy, rule.angle, rule.skew);
 		const [a, b, c, d, tx, ty] = matrix;
 		const mapPt = ([x, y]) => [
-			x * a + y * b + tx,
-	   	x * c + y * d + ty
+			x * a + y * c + tx,
+	   	x * b + y * d + ty
 		];
+		// const mapPt = ([x, y]) => [
+		// 	(y - ty - y*d)/c,
+		// 	(x - tx - x*a)/b
+	 //   	// x = x * a + y * b + tx;
+	 //   	// y = x * c + y * d + ty;
+		// ]
 
 		return svg`
 			<g style="transform: scale(1, -1);">
@@ -312,7 +318,7 @@
 					);
 
 
-				state.rules[state.selectedRule].skew = localX + state.ogRule.skew;
+				state.rules[state.selectedRule].skew = localX;
 				state.rules[state.selectedRule].sy = localY;
 
 			} else if (trans === "scale-rotate") {
@@ -412,9 +418,9 @@
 	function iterate(steps = 100, x, y) {
 
 		const canvas = document.querySelector(".c0");
-	    const context = canvas.getContext("2d");
-	    const width = canvas.width // = window.innerWidth,
-	    const height = canvas.height // = window.innerHeight;
+	   const context = canvas.getContext("2d");
+	   const width = canvas.width // = window.innerWidth,
+	   const height = canvas.height // = window.innerHeight;
 		
 		context.fillStyle = "white";
 		context.fillRect(0, 0, canvas.width, canvas.height);
@@ -427,8 +433,10 @@
 			var rule = getRule(rules);
 			const [a,b,c,d,tx,ty] = 
 				getMatrix(rule.dx, rule.dy, rule.sx, rule.sy, rule.angle, rule.skew)
-	   	x = x * a + y * b + tx;
-	   	y = x * c + y * d + ty;
+			// y = (x - tx - x*a)/b
+	   	x = x * a + y * c + tx;
+	   	y = x * b + y * d + ty;
+	   	// x = (y - ty - y*d)/c
 
 			plot(x, y, "black");
 			// plot(x, y, rule.color);
