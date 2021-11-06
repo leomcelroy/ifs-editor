@@ -57,7 +57,7 @@
 	}
 
 	const drawRule = (rule, i) => {
-		const matrix = getMatrix(rule.dx, rule.dy, rule.sx, rule.sy, rule.angle, rule.skew);
+		const matrix = getMatrixRule(rule);
 		const [a, b, c, d, tx, ty] = matrix;
 		const mapPt = ([x, y]) => [
 			x * a + y * c + tx,
@@ -190,6 +190,20 @@
 		return svgP;
     }
 
+    const mapPtFromRule = rule => ([x, y]) => {
+
+    	const [ a, b, c, d, tx, ty ] = getMatrixRule(rule);
+
+    	return [
+			x * a + y * c + tx,
+	   	x * b + y * d + ty
+		];
+	}
+
+    function getMatrixRule({ dx, dy, sx, sy, angle, skew }) {
+    	return getMatrix(dx, dy, sx, sy, angle, skew);
+    }
+
     function getMatrix(dx, dy, sx, sy, angle, skewness) {
     	var matrix=[1,0,0,1,0,0];
 
@@ -238,25 +252,19 @@
 	const mousemove = (e) => {
 		if (state.selectedRule !== undefined) {
 			const trans = state.transformation;
+
+			const { x, y } = getCurrentPoint(e);
 			const { dx, dy, sx, sy, angle, skew } = state.rules[state.selectedRule];
+
 			if (trans === "translate") {
-				const { x, y } = getCurrentPoint(e);
 				state.rules[state.selectedRule].dx = x;
 				state.rules[state.selectedRule].dy = y;
 			} else if (trans === "rotate") {
-				const origin = { // origin
-					x: state.rules[state.selectedRule].dx, 
-					y: state.rules[state.selectedRule].dy, 
-				}
-
-
-				const currentPoint = getCurrentPoint(e);
-
 				let a = (
-					Math.atan2(currentPoint.y - origin.y, currentPoint.x - origin.x) 
+					Math.atan2(y - dy, x - dx) 
 					-
-			        Math.atan2(state.clickedPoint.y - origin.y, state.clickedPoint.x - origin.x)	        
-			    );
+			      Math.atan2(state.clickedPoint.y - dy, state.clickedPoint.x - dx)
+			   );
 
 				a = a + state.ogRule.angle;
 
@@ -264,11 +272,17 @@
 
 				state.rules[state.selectedRule].angle = a;
 			} else if (trans === "scale") { // TODO: rotate the scale vector
-				const currentPoint = getCurrentPoint(e);
+				// var cos = Math.cos(angle);
+	   		// var sin = Math.sin(angle);
+	   		// matrix[2] += skewness * cos;
+	   		// matrix[3] += skewness * sin;
+	   		
+	   		// x * a + y * c + tx,
+	   		// x * b + y * d + ty
 
-				const dxFree = (currentPoint.x - dx);
-				const dyFree = (currentPoint.y - dy);
-		
+				const dxFree = (x - dx);
+				const dyFree = (y - dy);
+
 				let localX = (
 						Math.cos(angle)*dxFree +
 						Math.sin(angle)*dyFree
@@ -278,32 +292,10 @@
 				let localY = (
 						-Math.sin(angle)*dxFree +
 						Math.cos(angle)*dyFree
-					);
+					)
 
-				// const dxScale = (currentPoint.x - state.clickedPoint.x);
-				// const dyScale = (currentPoint.y - state.clickedPoint.y);
 
-				// let localX = (
-				// 		Math.cos(angle)*dxScale +
-				// 		Math.sin(angle)*dyScale
-				// 	);
-
-				// let localY = (
-				// 		-Math.sin(angle)*dxScale + 
-				// 		Math.cos(angle)*dyScale
-				// 	);
-
-				// let projectedClickX = (
-				// 		Math.cos(angle)*(state.clickedPoint.x - dx) + 
-				// 		Math.sin(angle)*(state.clickedPoint.y - dy)
-				// 	);
-
-				// let projectedClickY = (
-				// 		-Math.sin(angle)*(state.clickedPoint.x - dx) + 
-				// 		Math.cos(angle)*(state.clickedPoint.y - dy)
-				// 	);
-
-				state.rules[state.selectedRule].sx = localX-state.ogRule.skew;
+				state.rules[state.selectedRule].sx = localX - skew;
 
 				state.rules[state.selectedRule].sy = localY;
 
@@ -313,10 +305,8 @@
 			} else if (trans === "skew") {
 
 			} else if (trans === "free") {
-				const currentPoint = getCurrentPoint(e);
-
-				const dxFree = (currentPoint.x - dx);
-				const dyFree = (currentPoint.y - dy);
+				const dxFree = (x - dx);
+				const dyFree = (y - dy);
 		
 				let localX = (
 						Math.cos(angle)*dxFree +
@@ -334,17 +324,10 @@
 				state.rules[state.selectedRule].sy = localY;
 
 			} else if (trans === "scale-rotate") {
-				const currentPoint = getCurrentPoint(e);
-
-				const origin = { // origin
-					x: state.rules[state.selectedRule].dx, 
-					y: state.rules[state.selectedRule].dy, 
-				}
-
 				let a = (
-					Math.atan2(currentPoint.y - origin.y, currentPoint.x - origin.x) 
+					Math.atan2(y - dy, x - dx) 
 					-
-			      Math.atan2(state.clickedPoint.y - origin.y, state.clickedPoint.x - origin.x)	        
+			      Math.atan2(state.clickedPoint.y - dy, state.clickedPoint.x - dx)
 			    );
 
 				let a2 = a + state.ogRule.angle;
@@ -353,8 +336,8 @@
 
 				state.rules[state.selectedRule].angle = a2;
 
-				const dxScale = (currentPoint.x - dx);
-				const dyScale = (currentPoint.y - dy);
+				const dxScale = (x - dx);
+				const dyScale = (y - dy);
 
 				let localX = (
 						Math.cos(angle)*dxScale +
@@ -362,12 +345,10 @@
 					);
 		
 				state.rules[state.selectedRule].sx = localX;
-				state.rules[state.selectedRule].sy = localX*state.ogRule.sy/state.ogRule.sx;
+				state.rules[state.selectedRule].sy = localX*sy/sx;
 			}
 
-			var x = Math.random(),
-	    	y = Math.random();
-			iterate(1000, x, y);
+			iterate(1000, Math.random(), Math.random()); // steps, x, y
 
 			r();
 		}
