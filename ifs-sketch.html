@@ -267,20 +267,10 @@
 			      Math.atan2(state.clickedPoint.y - dy, state.clickedPoint.x - dx)
 			   );
 
-				a = a + state.ogRule.angle;
-
 				if (e.shiftKey) a = round45(a/Math.PI*180)/180*Math.PI;
 
 				state.rules[state.selectedRule].angle = a;
-			} else if (trans === "scale") { // TODO: rotate the scale vector
-				// var cos = Math.cos(angle);
-	   		// var sin = Math.sin(angle);
-	   		// matrix[2] += skewness * cos;
-	   		// matrix[3] += skewness * sin;
-	   		
-	   		// x * a + y * c + tx,
-	   		// x * b + y * d + ty
-
+			} else if (trans === "scale") {
 				const dxFree = (x - dx);
 				const dyFree = (y - dy);
 
@@ -295,35 +285,8 @@
 						Math.cos(angle)*dyFree
 					)
 
-				let deltaX = (state.clickedPoint.x - dx);
-				let deltaY = (state.clickedPoint.y - dy);
-
-				let localDeltaX = (
-						Math.cos(angle)*deltaX +
-						Math.sin(angle)*deltaY
-					)
-
-				let localDeltaY = (
-						-Math.sin(angle)*deltaX +
-						Math.cos(angle)*deltaY
-					)
-
-				const ldx = localX - localDeltaX;
-				const ldy = localY - localDeltaY;
-				// console.log(ldx, ldy);
-
-				// const skewAngle = Math.atan(skew);
-				// // tan a = y/x
-				// const r = Math.sqrt(localX**2 + localY**2);
-
-				// state.rules[state.selectedRule].skew = skew/ldy
 				state.rules[state.selectedRule].sx = localX;
 				state.rules[state.selectedRule].sy = localY;
-
-
-				if (e.shiftKey) state.rules[state.selectedRule].sy = state.rules[state.selectedRule].sx
-
-			} else if (trans === "skew") {
 
 			} else if (trans === "free") {
 				const dxFree = (x - dx);
@@ -340,11 +303,7 @@
 						Math.cos(angle)*dyFree
 					);
 
-				// const a = Math.atan(localX/sy)/Math.PI*180;
-				let newSkew = localX/sy;
-				// if (Math.abs(a % 90) < 0.5) newSkew = 5;
-
-				state.rules[state.selectedRule].skew = e.shiftKey ? skew : newSkew;
+				state.rules[state.selectedRule].skew = e.shiftKey ? skew : localX/sy;;
 				state.rules[state.selectedRule].sy = localY;
 
 			} else if (trans === "scale-rotate") {
