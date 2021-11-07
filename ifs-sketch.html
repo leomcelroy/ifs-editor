@@ -299,6 +299,7 @@
 
 				state.rules[state.selectedRule].angle = a;
 			} else if (trans === "scaleX") {
+
 				state.rules[state.selectedRule].sx = localX - skew*localY;
 
 			} else if (trans === "scaleY") {
@@ -307,7 +308,11 @@
 
 			} else if (trans === "free") {
 
-				state.rules[state.selectedRule].skew = localX/sy;
+				// skew = atan(r/x), atan(r/y)
+
+				state.rules[state.selectedRule].skew = Math.tan(Math.atan2(localX, localY));
+				// Math.atan2(localX, sy)
+				// localX/sy;
 				state.rules[state.selectedRule].sy = e.shiftKey ? sy : localY;
 
 			} else if (trans === "scale-rotate") {
