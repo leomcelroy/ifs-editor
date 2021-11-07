@@ -63,12 +63,6 @@
 			x * a + y * c + tx,
 	   	x * b + y * d + ty
 		];
-		// const mapPt = ([x, y]) => [
-		// 	(y - ty - y*d)/c,
-		// 	(x - tx - x*a)/b
-	 //   	// x = x * a + y * b + tx;
-	 //   	// y = x * c + y * d + ty;
-		// ]
 
 		return svg`
 			<g style="transform: scale(1, -1);">
@@ -92,29 +86,29 @@
 					cy=${0} 
 					fill="teal"
 					r="0.1"/>
-				<circle class="rotate handle" 
-					@mousedown=${() => selectRotate(i)} 
-					cx=${mapPt([1, 1])[0]} 
-					cy=${mapPt([1, 1])[1]}  
-					fill="red"
-					r="0.1"/>
-				<circle class="scale handle" 
-					@mousedown=${() => selectScale(i)} 
-					cx=${mapPt([1, 1])[0]} 
-					cy=${mapPt([1, 1])[1]}  
+				<circle class="scale-y handle" 
+					@mousedown=${() => selectScaleX(i)} 
+					cx=${mapPt([1, .5])[0]} 
+					cy=${mapPt([1, .5])[1]}  
+					fill="black"
+					r="0.04"/>
+				<circle class="scale-x handle" 
+					@mousedown=${() => selectScaleY(i)} 
+					cx=${mapPt([.5, 1])[0]} 
+					cy=${mapPt([.5, 1])[1]}  
 					fill="black"
 					r="0.04"/>
 				<circle class="scale-rotate handle" 
 					@mousedown=${() => selectScaleRotate(i)} 
 					cx=${mapPt([1, 0])[0]} 
 					cy=${mapPt([1, 0])[1]}  
-					fill="black"
+					fill="red"
 					r="0.04"/>
 				<circle class="free handle" 
 					@mousedown=${() => selectFree(i)} 
 					cx=${mapPt([0, 1])[0]} 
 					cy=${mapPt([0, 1])[1]}  
-					fill="black"
+					fill="purple"
 					r="0.04"/>
 			</g>
 		`
@@ -127,16 +121,23 @@
 		r();
 	}
 
-	const selectRotate = (i) => {
+	// const selectRotate = (i) => {
+	// 	state.selectedRule = i
+	// 	state.transformation = "rotate";
+	// 	state.ogRule = { ...state.rules[i] };
+	// 	r();
+	// }
+
+	const selectScaleX = (i) => {
 		state.selectedRule = i
-		state.transformation = "rotate";
+		state.transformation = "scaleX";
 		state.ogRule = { ...state.rules[i] };
 		r();
 	}
 
-	const selectScale = (i) => {
+	const selectScaleY = (i) => {
 		state.selectedRule = i
-		state.transformation = "scale";
+		state.transformation = "scaleY";
 		state.ogRule = { ...state.rules[i] };
 		r();
 	}
@@ -148,12 +149,12 @@
 		r();
 	}
 
-	const selectSkew = (i) => {
-		state.selectedRule = i
-		state.transformation = "skew";
-		state.ogRule = { ...state.rules[i] };
-		r();
-	}
+	// const selectSkew = (i) => {
+	// 	state.selectedRule = i
+	// 	state.transformation = "skew";
+	// 	state.ogRule = { ...state.rules[i] };
+	// 	r();
+	// }
 
 	const selectFree = (i) => {
 		state.selectedRule = i
@@ -257,6 +258,20 @@
 			const { x, y } = getCurrentPoint(e);
 			const { dx, dy, sx, sy, angle, skew } = state.rules[state.selectedRule];
 
+			const deltaX = (x - dx);
+			const deltaY = (y - dy);
+
+			let localX = (
+				Math.cos(angle)*deltaX +
+				Math.sin(angle)*deltaY
+			)
+
+
+			let localY = (
+				-Math.sin(angle)*deltaX +
+				Math.cos(angle)*deltaY
+			)
+
 			if (trans === "translate") {
 				state.rules[state.selectedRule].dx = x;
 				state.rules[state.selectedRule].dy = y;
@@ -270,40 +285,16 @@
 				if (e.shiftKey) a = round45(a/Math.PI*180)/180*Math.PI;
 
 				state.rules[state.selectedRule].angle = a;
-			} else if (trans === "scale") {
-				const dxFree = (x - dx);
-				const dyFree = (y - dy);
+			} else if (trans === "scaleX") {
+				state.rules[state.selectedRule].sx = localX - skew*localY;
 
-				let localX = (
-						Math.cos(angle)*dxFree +
-						Math.sin(angle)*dyFree
-					)
-
-
-				let localY = (
-						-Math.sin(angle)*dxFree +
-						Math.cos(angle)*dyFree
-					)
-
-				state.rules[state.selectedRule].sx = localX;
+			} else if (trans === "scaleY") {
+				
 				state.rules[state.selectedRule].sy = localY;
 
 			} else if (trans === "free") {
-				const dxFree = (x - dx);
-				const dyFree = (y - dy);
-		
-				let localX = (
-						Math.cos(angle)*dxFree +
-						Math.sin(angle)*dyFree
-					);
 
-
-				let localY = (
-						-Math.sin(angle)*dxFree +
-						Math.cos(angle)*dyFree
-					);
-
-				state.rules[state.selectedRule].skew = e.shiftKey ? skew : localX/sy;;
+				state.rules[state.selectedRule].skew = e.shiftKey ? skew : localX/sy;
 				state.rules[state.selectedRule].sy = localY;
 
 			} else if (trans === "scale-rotate") {
@@ -319,14 +310,6 @@
 
 				state.rules[state.selectedRule].angle = a2;
 
-				const dxScale = (x - dx);
-				const dyScale = (y - dy);
-
-				let localX = (
-						Math.cos(angle)*dxScale +
-						Math.sin(angle)*dyScale
-					);
-		
 				state.rules[state.selectedRule].sx = localX;
 				state.rules[state.selectedRule].sy = localX*sy/sx;
 			}
