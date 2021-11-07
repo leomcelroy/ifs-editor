@@ -39,7 +39,7 @@
 
 	const drawMatrix = state => {
 		const r = state.rules[state.selectedRule];
-		const terms = [ r.dx, r.dy, r.sx, r.sy, r.angle, r.skew ].map(x => Math.round(x*100)/100);
+		const terms = [ r.dx, r.dy, r.sx, r.sy, r.angle, Math.atan(r.skew)/Math.PI*180 ].map(x => Math.round(x*100)/100);
 		const [ dx, dy, sx, sy, angle, skew ] = terms;
 		const matrix = getMatrix(dx, dy, sx, sy, angle, skew);
 
@@ -50,7 +50,7 @@
 				<div>sx: ${sx}</div>
 				<div>sy: ${sy}</div>
 				<div>angle: ${angle}</div>
-				<div>skew: ${skew}</div>
+				<div>skew: ${skew} deg</div>
 				<div>matrix: ${matrix.map(x => Math.round(x*100)/100).join(",")}</div>
 			</div>
 		`
@@ -208,9 +208,10 @@
     	var matrix=[1,0,0,1,0,0];
 
     	 translate(dx, dy);
-	    rotate(angle);
-	    scale(sx, sy);
-	    skew(skewness);
+    	 rotate(angle);
+    	 skew(skewness);
+    	 scale(sx, sy);
+    	 // skew(skewness);
 
 	    return matrix;
 
@@ -294,9 +295,29 @@
 						Math.cos(angle)*dyFree
 					)
 
+				let deltaX = (state.clickedPoint.x - dx);
+				let deltaY = (state.clickedPoint.y - dy);
 
-				state.rules[state.selectedRule].sx = localX - skew;
+				let localDeltaX = (
+						Math.cos(angle)*deltaX +
+						Math.sin(angle)*deltaY
+					)
 
+				let localDeltaY = (
+						-Math.sin(angle)*deltaX +
+						Math.cos(angle)*deltaY
+					)
+
+				const ldx = localX - localDeltaX;
+				const ldy = localY - localDeltaY;
+				// console.log(ldx, ldy);
+
+				// const skewAngle = Math.atan(skew);
+				// // tan a = y/x
+				// const r = Math.sqrt(localX**2 + localY**2);
+
+				// state.rules[state.selectedRule].skew = skew/ldy
+				state.rules[state.selectedRule].sx = localX;
 				state.rules[state.selectedRule].sy = localY;
 
 
@@ -319,8 +340,11 @@
 						Math.cos(angle)*dyFree
 					);
 
+				// const a = Math.atan(localX/sy)/Math.PI*180;
+				let newSkew = localX/sy;
+				// if (Math.abs(a % 90) < 0.5) newSkew = 5;
 
-				state.rules[state.selectedRule].skew = localX;
+				state.rules[state.selectedRule].skew = e.shiftKey ? skew : newSkew;
 				state.rules[state.selectedRule].sy = localY;
 
 			} else if (trans === "scale-rotate") {
