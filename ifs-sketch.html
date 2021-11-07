@@ -45,13 +45,27 @@
 
 		return html`
 			<div class="matrix">
-				<div>dx: ${dx}</div>
-				<div>dy: ${dy}</div>
-				<div>sx: ${sx}</div>
-				<div>sy: ${sy}</div>
-				<div>angle: ${angle}</div>
-				<div>skew: ${skew} deg</div>
-				<div>matrix: ${matrix.map(x => Math.round(x*100)/100).join(",")}</div>
+				<div>
+					<span class="num-label">dx, dy:</span> 
+					<span class="num">${dx}</span> 
+					<span class="num-label">,</span> 
+					<span class="num">${dy}</span>
+				</div>
+				<div>
+					<span class="num-label">sx, sy:</span> 
+					<span class="num">${sx}</span> 
+					<span class="num-label">,</span> 
+					<span class="num">${sy}</span>
+				</div>
+				<div>
+					<span class="num-label">angle:</span>
+					<span class="num">${angle}</span>
+				</div>
+				<div>
+					<span class="num-label">skew:</span>
+					<span class="num">${skew}</span>
+				</div>
+				<div>matrix: ${matrix.map(x => Math.round(x*100)/100).join(", ")}</div>
 			</div>
 		`
 	}
@@ -76,7 +90,6 @@
 					fill=${"#04b4ff" }
 					width="1" 
 					height="1"/>
-				<circle cx="0" cy="-50" r="40" fill="yellow"/>
 				<circle class="translate handle" 
 					@mousedown=${() => selectTranslate(i)} 
 					style=${`
@@ -294,8 +307,8 @@
 
 			} else if (trans === "free") {
 
-				state.rules[state.selectedRule].skew = e.shiftKey ? skew : localX/sy;
-				state.rules[state.selectedRule].sy = localY;
+				state.rules[state.selectedRule].skew = localX/sy;
+				state.rules[state.selectedRule].sy = e.shiftKey ? sy : localY;
 
 			} else if (trans === "scale-rotate") {
 				let a = (
@@ -305,13 +318,15 @@
 			    );
 
 				let a2 = a + state.ogRule.angle;
-
-				if (e.shiftKey) a2 = round45(a/Math.PI*180)/180*Math.PI;
+				// if (e.shiftKey) a2 = round45(a/Math.PI*180)/180*Math.PI;
 
 				state.rules[state.selectedRule].angle = a2;
 
-				state.rules[state.selectedRule].sx = localX;
-				state.rules[state.selectedRule].sy = localX*sy/sx;
+				if (!e.shiftKey) {
+					state.rules[state.selectedRule].sx = localX;
+					state.rules[state.selectedRule].sy = localX*sy/sx;
+				};
+
 			}
 
 			iterate(1000, Math.random(), Math.random()); // steps, x, y
@@ -482,6 +497,16 @@
 		left: 10px;
 		bottom: 10px;
 		border: 2px solid black;
+		padding: 4px;
+		border-radius: 5px;
+	}
+
+	.num {
+		color: red;
+	}
+
+	.num-label {
+		color: grey;
 	}
 
 </style>
