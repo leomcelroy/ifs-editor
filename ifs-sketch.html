@@ -15,9 +15,18 @@
 	}
 
 	const view = (state) => html`
-		<div class="left-pane" @mousemove=${mousemove} @mouseup=${mouseup} @mousedown=${mousedown}>
+		<div 
+			class="left-pane" 
+			@mousemove=${mousemove} 
+			@mouseup=${mouseup} 
+			@mousedown=${mousedown}
+			@dragover=${pauseEvent}
+			@drop=${dropFile}>
 			<div class="menu">
 				<button @mousedown=${addRule}>add rule</button>
+				<button @mousedown=${deleteRule}>delete rule</button>
+				<button @mousedown=${r}>render</button>
+				<button @mousedown=${save}>save</button>
 				<div>
 					<span style="text-align: center;">steps:</span>
 					<input 
@@ -27,7 +36,8 @@
 					</input>
 				</div>
 			</div>
-			<svg viewBox="-1 -1 3 3"> 
+			<svg viewBox="-0.5 -1 2 1"> 
+				<rect y="-1" width="1" height="1" fill="none" stroke="black" stroke-width="0.02"/>
 				${state.rules.map(drawRule)}
 			</svg>
 		</div>
@@ -38,8 +48,8 @@
 	`
 
 	const drawMatrix = state => {
-		const r = state.rules[state.selectedRule];
-		const terms = [ r.dx, r.dy, r.sx, r.sy, r.angle, Math.atan(r.skew)/Math.PI*180 ].map(x => Math.round(x*100)/100);
+		const rule = state.rules[state.selectedRule];
+		const terms = [ rule.dx, rule.dy, rule.sx, rule.sy, rule.angle/Math.PI*180, Math.atan(rule.skew)/Math.PI*180 ].map(x => Math.round(x*100)/100);
 		const [ dx, dy, sx, sy, angle, skew ] = terms;
 		const matrix = getMatrix(dx, dy, sx, sy, angle, skew);
 
@@ -47,23 +57,41 @@
 			<div class="matrix">
 				<div>
 					<span class="num-label">dx, dy:</span> 
-					<span class="num">${dx}</span> 
+					<input 
+						class="num" 
+						.value=${dx} 
+						@change=${e => { rule.dx = e.target.value; reRender(); }}/>
 					<span class="num-label">,</span> 
-					<span class="num">${dy}</span>
+					<input 
+						class="num" 
+						.value=${dy} 
+						@change=${e => { rule.dy = e.target.value; reRender(); }}/>
 				</div>
 				<div>
 					<span class="num-label">sx, sy:</span> 
-					<span class="num">${sx}</span> 
+					<input 
+						class="num" 
+						.value=${sx} 
+						@change=${e => { rule.sx = e.target.value; reRender(); }}/> 
 					<span class="num-label">,</span> 
-					<span class="num">${sy}</span>
+					<input 
+						class="num" 
+						.value=${sy} 
+						@change=${e => { rule.sy = e.target.value; reRender(); }}/>
 				</div>
 				<div>
 					<span class="num-label">angle:</span>
-					<span class="num">${angle}</span>
+					<input 
+						class="num" 
+						.value=${angle} 
+						@change=${e => { rule.angle = e.target.value/180*Math.PI; reRender(); }}/>
 				</div>
 				<div>
 					<span class="num-label">skew:</span>
-					<span class="num">${skew}</span>
+					<input 
+						class="num"
+						.value=${skew} 
+						@change=${e => { rule.skew = Math.tan(e.target.value/180*Math.PI); reRender(); }}/>
 				</div>
 				<div>matrix: ${matrix.map(x => Math.round(x*100)/100).join(", ")}</div>
 			</div>
@@ -85,6 +113,7 @@
 						opacity: ${ state.selectedRule === i ? .7 : 1};
 					`}
 					class="affine-square"
+					@mousedown=${() => selectRule(i)}
 					x=${0} 
 					y=${0} 
 					fill=${"#04b4ff" }
@@ -98,7 +127,7 @@
 					cx=${0} 
 					cy=${0} 
 					fill="teal"
-					r="0.1"/>
+					r="0.04"/>
 				<circle class="scale-y handle" 
 					@mousedown=${() => selectScaleX(i)} 
 					cx=${mapPt([1, .5])[0]} 
@@ -173,6 +202,11 @@
 		state.selectedRule = i
 		state.transformation = "free";
 		state.ogRule = { ...state.rules[i] };
+		r();
+	}
+
+	const selectRule = i => {
+		state.selectedRule = state.selectedRule === i ? undefined : i;
 		r();
 	}
 
@@ -332,6 +366,8 @@
 					state.rules[state.selectedRule].sy = localX*sy/sx;
 				};
 
+			} else {
+				return;
 			}
 
 			iterate(1000, Math.random(), Math.random()); // steps, x, y
@@ -342,13 +378,10 @@
 	}
 
 	const mouseup = () => {
-		state.selectedRule = undefined;
+		if (state.transformation !== "") state.selectedRule = undefined;
 		state.transformation = "";
 
-		var x = Math.random(),
-	    	 y = Math.random();
-		iterate(state.steps, x, y);
-		r();
+		reRender();
 	}
 
 	const addRule = () => {
@@ -363,12 +396,40 @@
          color: "red",
       })
 
-		r();
+		reRender();
 	}
 
+	const deleteRule = () => {
+		if (state.selectedRule === undefined) return;
+		state.rules = state.rules.filter((x, i) => i !== state.selectedRule);
+		state.selectedRule = undefined;
+		reRender();
+	}
 
+	function download(filename, text) {
+	  var element = document.createElement('a');
+	  element.setAttribute('href', 'data:text/plain;charset=utf-8,' + encodeURIComponent(text));
+	  element.setAttribute('download', filename);
+
+	  element.style.display = 'none';
+	  document.body.appendChild(element);
+
+	  element.click();
+
+	  document.body.removeChild(element);
+	}
+
+	const save = () => {
+		download("fractal.json", JSON.stringify(state.rules));
+	}
 
 	const r = () => render(document.body, view(state));
+	const reRender = () => {
+		var x = Math.random(),
+	    	 y = Math.random();
+		iterate(state.steps, x, y);
+		r();
+	}
 
 	// init render
 	r();
@@ -406,6 +467,7 @@
 		// context.translate(width / 2, height);
 
 		let rules = state.rules;
+		if (rules.length === 0) return;
 		const addsToOne = rules.reduce((acc, cur) => acc + cur.weight, 0) === 1;
 		if (!addsToOne) rules = rules.map( rule => ({ ...rule, weight: 1/rules.length }));
 		for(var i = 0; i < steps; i++) {
@@ -441,7 +503,7 @@
 	    const height = canvas.height // = window.innerHeight;
 	
 		context.fillStyle = color;
-		context.fillRect(x*200+width/2, -y*200+height/2, 1.5, 1.5);
+		context.fillRect(x*400+width/4, -y*400+(3*height/4), 1, 1);
 	}
 
 
@@ -452,6 +514,49 @@
 	  	requestAnimationFrame(animate);
 	}
 	// animate()
+
+	function readFile(file) {
+	  var reader = new FileReader();
+	  reader.readAsText(file);
+
+	  reader.onloadend = event => {
+	    let text = reader.result;
+	    state.rules = JSON.parse(text);
+	    reRender();
+	  };
+	}
+
+	function upload(files, extensions = []) {
+	  let file = files[0];
+	  let fileName = file.name.split(".");
+	  let name = fileName[0];
+	  const extension = fileName[fileName.length - 1];
+
+	  if (extension === "json") {
+	    readFile(file);
+	  } else {
+	    throw Error("Unknown extension:", extension);
+	  }
+
+	};
+
+	function pauseEvent(e) {
+		if(e.stopPropagation) e.stopPropagation();
+		if(e.preventDefault) e.preventDefault();
+		e.cancelBubble=true;
+		e.returnValue=false;
+		return false;
+	}
+
+	function dropFile(evt) {    
+		let dt = evt.dataTransfer;
+		let files = dt.files;
+
+		upload(files);
+
+		pauseEvent(evt);
+	};
+
 
 </script>
 
@@ -468,6 +573,7 @@
 	.container {
 		width: 100%;
 		height: 100%;
+		display: flex;
 	}
 
 	svg {
@@ -508,10 +614,17 @@
 
 	.num {
 		color: red;
+		margin: 3px;
+		width: 100px;
+		text-align: center;
 	}
 
 	.num-label {
 		color: grey;
+	}
+
+	.c0 {
+		border: 1px dashed black;
 	}
 
 </style>
